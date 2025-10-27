@@ -14,7 +14,7 @@ WarungWare adalah aplikasi web sederhana untuk membantu pengelolaan warung: penc
 
 ## Fitur (dasar)
 - Login/logout sederhana (autentikasi berbasis file PHP).
-- Halaman manajemen barang / brand.
+- Halaman manajemen barang.
 - Pencatatan penjualan (SQL example file disertakan).
 - Upload file/gambar (folder `uploads`).
 - Struktur halaman modular di folder `pages` / `includes`.
