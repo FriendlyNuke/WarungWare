@@ -109,7 +109,7 @@ include '../includes/header.php'; $views = $_SESSION['views'] ?? 'terbaru'; ?>
     JOIN detail_penjualan d ON p.id = d.id_penjualan
     JOIN produk pr ON d.id_produk = pr.id
     GROUP BY p.tanggal, pr.id
-    ORDER BY p.tanggal DESC, total_harga DESC
+    ORDER BY total_harga DESC
   ");
 }else if ($views == 'total terendah') {
   $penjualan = mysqli_query($conn, "
@@ -123,7 +123,7 @@ include '../includes/header.php'; $views = $_SESSION['views'] ?? 'terbaru'; ?>
     JOIN detail_penjualan d ON p.id = d.id_penjualan
     JOIN produk pr ON d.id_produk = pr.id
     GROUP BY p.tanggal, pr.id
-    ORDER BY p.tanggal ASC, total_harga ASC
+    ORDER BY total_harga ASC
   ");
 }
 
@@ -206,3 +206,4 @@ include '../includes/header.php'; $views = $_SESSION['views'] ?? 'terbaru'; ?>
 </body>
 <?php include '../includes/footer.php'; ?>
 </html>
+
