@@ -31,8 +31,3 @@ WarungWare adalah aplikasi web sederhana untuk membantu pengelolaan warung: penc
 
 ---
 
-## Instalasi (lokal)
-1. Clone repo:
-   ```bash
-   git clone https://github.com/FriendlyNuke/WarungWare.git
-   cd WarungWare
