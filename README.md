@@ -3,7 +3,7 @@
 Aplikasi website manajemen warung berbasis PHP.
 
 **Status:** Minimal / Basic demo (PHP + MySQL).  
-**License:** GPL-3.0. :contentReference[oaicite:1]{index=1}
+**License:** GPL-3.0.
 
 ---
 
