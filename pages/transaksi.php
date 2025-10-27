@@ -1,77 +1,77 @@
 <?php
-session_start();
-if (!isset($_SESSION['username'])) {
-    header("Location: ../login.php");
-    exit;
-}
-include '../config/database.php';
+    session_start();
+    if (!isset($_SESSION['username'])) {
+        header("Location: ../login.php");
+        exit;
+    }
+    include '../config/database.php';
 
-// ambil daftar produk
-$produk = mysqli_query($conn, "SELECT * FROM produk WHERE stok > 0");
+    // ambil daftar produk
+    $produk = mysqli_query($conn, "SELECT * FROM produk WHERE stok > 0");
 
-// inisialisasi keranjang
-if (!isset($_SESSION['keranjang'])) {
-    $_SESSION['keranjang'] = [];
-}
+    // inisialisasi keranjang
+    if (!isset($_SESSION['keranjang'])) {
+        $_SESSION['keranjang'] = [];
+    }
 
-// tambah ke keranjang (baik dari form list maupun modal gambar)
-if (isset($_POST['tambah'])) {
-    $id_produk = $_POST['id_produk'];
-    $jumlah = (int) $_POST['jumlah'];
-    $data = mysqli_fetch_assoc(mysqli_query($conn, "SELECT * FROM produk WHERE id='$id_produk'"));
+    // tambah ke keranjang (baik dari form list maupun modal gambar)
+    if (isset($_POST['tambah'])) {
+        $id_produk = $_POST['id_produk'];
+        $jumlah = (int) $_POST['jumlah'];
+        $data = mysqli_fetch_assoc(mysqli_query($conn, "SELECT * FROM produk WHERE id='$id_produk'"));
 
-    if (!$data) {
-        $error = "Produk tidak ditemukan.";
-    } elseif ($jumlah < 1) {
-        $error = "Jumlah minimal 1.";
-    } elseif ($jumlah > $data['stok']) {
-        $error = "Jumlah melebihi stok yang tersedia (" . $data['stok'] . ").";
-    } else {
-        if (isset($_SESSION['keranjang'][$id_produk])) {
-            $newJumlah = $_SESSION['keranjang'][$id_produk] + $jumlah;
-            if ($newJumlah > $data['stok']) {
-                $error = "Total jumlah melebihi stok yang tersedia.";
-            } else {
-                $_SESSION['keranjang'][$id_produk] = $newJumlah;
-            }
+        if (!$data) {
+            $error = "Produk tidak ditemukan.";
+        } elseif ($jumlah < 1) {
+            $error = "Jumlah minimal 1.";
+        } elseif ($jumlah > $data['stok']) {
+            $error = "Jumlah melebihi stok yang tersedia (" . $data['stok'] . ").";
         } else {
-            $_SESSION['keranjang'][$id_produk] = $jumlah;
+            if (isset($_SESSION['keranjang'][$id_produk])) {
+                $newJumlah = $_SESSION['keranjang'][$id_produk] + $jumlah;
+                if ($newJumlah > $data['stok']) {
+                    $error = "Total jumlah melebihi stok yang tersedia.";
+                } else {
+                    $_SESSION['keranjang'][$id_produk] = $newJumlah;
+                }
+            } else {
+                $_SESSION['keranjang'][$id_produk] = $jumlah;
+            }
         }
     }
-}
 
-// hapus item dari keranjang
-if (isset($_GET['hapus'])) {
-    $hapus_id = $_GET['hapus'];
-    unset($_SESSION['keranjang'][$hapus_id]);
-    header("Location: transaksi.php");
-    exit;
-}
-
-// simpan transaksi
-if (isset($_POST['simpan'])) {
-    if (!empty($_SESSION['keranjang'])) {
-        $total = 0;
-        mysqli_query($conn, "INSERT INTO penjualan (tanggal, total) VALUES (NOW(), 0)");
-        $id_penjualan = mysqli_insert_id($conn);
-
-        foreach ($_SESSION['keranjang'] as $id_produk => $jumlah) {
-            $data = mysqli_fetch_assoc(mysqli_query($conn, "SELECT * FROM produk WHERE id='$id_produk'"));
-            $subtotal = $data['harga'] * $jumlah;
-            $total += $subtotal;
-            mysqli_query($conn, "INSERT INTO detail_penjualan (id_penjualan, id_produk, jumlah, subtotal)
-                                 VALUES ('$id_penjualan','$id_produk','$jumlah','$subtotal')");
-            mysqli_query($conn, "UPDATE produk SET stok = stok - $jumlah WHERE id='$id_produk'");
-        }
-
-        mysqli_query($conn, "UPDATE penjualan SET total = '$total' WHERE id='$id_penjualan'");
-        unset($_SESSION['keranjang']);
-        $sukses = "Transaksi berhasil disimpan!";
-    } else {
-        $error = "Keranjang masih kosong!";
+    // hapus item dari keranjang
+    if (isset($_GET['hapus'])) {
+        $hapus_id = $_GET['hapus'];
+        unset($_SESSION['keranjang'][$hapus_id]);
+        header("Location: transaksi.php");
+        exit;
     }
-}
-$produk = mysqli_query($conn, "SELECT * FROM produk ORDER BY id DESC");
+
+    // simpan transaksi
+    if (isset($_POST['simpan'])) {
+        if (!empty($_SESSION['keranjang'])) {
+            $total = 0;
+            mysqli_query($conn, "INSERT INTO penjualan (tanggal, total) VALUES (NOW(), 0)");
+            $id_penjualan = mysqli_insert_id($conn);
+
+            foreach ($_SESSION['keranjang'] as $id_produk => $jumlah) {
+                $data = mysqli_fetch_assoc(mysqli_query($conn, "SELECT * FROM produk WHERE id='$id_produk'"));
+                $subtotal = $data['harga'] * $jumlah;
+                $total += $subtotal;
+                mysqli_query($conn, "INSERT INTO detail_penjualan (id_penjualan, id_produk, jumlah, subtotal)
+                                    VALUES ('$id_penjualan','$id_produk','$jumlah','$subtotal')");
+                mysqli_query($conn, "UPDATE produk SET stok = stok - $jumlah WHERE id='$id_produk'");
+            }
+
+            mysqli_query($conn, "UPDATE penjualan SET total = '$total' WHERE id='$id_penjualan'");
+            unset($_SESSION['keranjang']);
+            $sukses = "Transaksi berhasil disimpan!";
+        } else {
+            $error = "Keranjang masih kosong!";
+        }
+    }
+    $produk = mysqli_query($conn, "SELECT * FROM produk ORDER BY id DESC");
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -80,14 +80,18 @@ $produk = mysqli_query($conn, "SELECT * FROM produk ORDER BY id DESC");
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Transaksi - <?php include '../brand.php' ?></title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-select@1.14.0-beta3/dist/css/bootstrap-select.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../assets/css/style.css">
 <style>
-.card-produk img {
-  height: 120px;
-  object-fit: cover;
+.product-card {
+  transform: scale(0.85); /* perkecil keseluruhan card */
+  transform-origin: top center; /* supaya tetap sejajar */
+  transition: transform 0.2s ease-in-out;
 }
-.card.shadow-sm {
+      .product-card:hover { transform: scale(0.95); box-shadow: 0 3px 10px rgba(0,0,0,0.1); }
+      .product-img { height: 200px; object-fit: cover; border-bottom: 1px solid #eee; }
+ .card.shadow-sm {
   margin-bottom: 20px !important;
   margin-top: 10px !important;
 }
@@ -103,6 +107,19 @@ $produk = mysqli_query($conn, "SELECT * FROM produk ORDER BY id DESC");
 form.card.shadow-sm {
   margin-bottom: 10px !important;
 }
+.bootstrap-select .dropdown-menu li a img {
+  vertical-align: middle;
+  margin-right: 8px;
+  border-radius: 4px;
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+}
+.bootstrap-select .dropdown-toggle {
+  display: flex;
+  align-items: center;
+}
+
 </style>
 </head>
 <body>
@@ -132,40 +149,66 @@ form.card.shadow-sm {
 
   <!-- VIEW: LIST -->
   <div id="view-list">
-    <form method="post" class="card shadow-sm p-4 mb-4">
-      <div class="row g-3 align-items-end">
-        <div class="col-md-6">
-          <label>Produk</label>
-          <select name="id_produk" class="form-select" required>
-            <option value="">-- Pilih Produk --</option>
-            <?php mysqli_data_seek($produk, 0); foreach($produk as $p): ?>
-              <option value="<?= $p['id']; ?>">
-                <?= $p['nama_produk']; ?> - Stok: <?= $p['stok']; ?> - Rp <?= number_format($p['harga']); ?>
-              </option>
-            <?php endforeach; ?>
-          </select>
-        </div>
-        <div class="col-md-3">
-          <label>Jumlah</label>
-          <input type="number" name="jumlah" class="form-control" min="1" required>
-        </div>
-        <div class="col-md-3">
-          <button type="submit" name="tambah" class="btn btn-primary w-100">Tambahkan</button>
-        </div>
+  <form method="post" class="card shadow-sm p-4 mb-4">
+    <div class="row g-3 align-items-end">
+      <div class="col-md-6">
+        <label>Produk</label>
+       <select name="id_produk"
+        class="selectpicker"
+        data-live-search="true"
+        data-style="btn-outline-primary"
+        data-container="body"
+        title="-- Pilih Produk --"
+        required>
+  <option value="">-- Pilih Produk --</option>
+          <?php mysqli_data_seek($produk, 0); foreach($produk as $p): ?>
+            <?php
+              // Tentukan path gambar produk (gunakan default jika kosong)
+              $gambar = !empty($p['gambar']) ? '../uploads/' . htmlspecialchars($p['gambar']) : '../assets/img/default.png';
+              $nama   = htmlspecialchars($p['nama_produk']);
+              $stok   = (int)$p['stok'];
+              $harga  = number_format($p['harga']);
+            ?>
+            <option 
+              value="<?= $p['id']; ?>"
+              data-content="
+                <div class='d-flex align-items-center'>
+                  <img src='<?= $gambar; ?>' 
+                       class='rounded me-2 border' 
+                       style='width:40px;height:40px;object-fit:cover;'>
+                  <div class='d-inline-block text-start'>
+                    <div class='fw-semibold'><?= $nama; ?></div>
+                    <small class='text-muted'>Stok: <?= $stok; ?> - Rp <?= $harga; ?></small>
+                  </div>
+                </div>
+              ">
+              <?= $nama; ?> <!-- fallback text (wajib untuk HTML select) -->
+            </option>
+          <?php endforeach; ?>
+        </select>
+
       </div>
-    </form>
-  </div>
+      <div class="col-md-3">
+        <label>Jumlah</label>
+        <input type="number" name="jumlah" class="form-control" min="1" required>
+      </div>
+      <div class="col-md-3">
+        <button type="submit" name="tambah" class="btn btn-primary w-100">Tambahkan</button>
+      </div>
+    </div>
+  </form>
+</div>
 
   <!-- VIEW: GAMBAR -->
 
-  <div id="view-gambar" class="row g-3 d-none">
+  <div id="view-gambar" class="row row-cols-1 row-cols-md-1 row-cols-lg-5 g-1 none ">
     <?php mysqli_data_seek($produk, 0); foreach($produk as $p): ?>
     <div class="col-md-3">
-      <div class="card card-produk shadow-sm">
+      <div class="card product-card">
         <img src="<?= $p['gambar'] ? '../uploads/'.$p['gambar'] : '../assets/images/default.png'; ?>"
                                  style="object-fit:cover; border-radius:6px;"
              onerror="this.src='../assets/img/default.png'; this.removeAttribute('onerror');" 
-             class="card-img-top">
+             class="card-img-top product-img">
         <div class="card-body text-center">
           <h6><?= htmlspecialchars($p['nama_produk']); ?></h6>
           <p class="text-success mb-1">Rp <?= number_format($p['harga'],0,',','.'); ?></p>
@@ -225,7 +268,7 @@ form.card.shadow-sm {
   </div>
   <?php endif; ?>
 
-</div> <!-- ✅ Tutup container utama -->
+</div>
 
 <!-- MODAL KUANTITAS -->
 <div class="modal fade" id="qtyModal" tabindex="-1" aria-hidden="true">
@@ -256,7 +299,18 @@ form.card.shadow-sm {
 </div>
 
 <!-- JS -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+ <script>
+  // Inisialisasi plugin Bootstrap-Select setelah halaman dimuat
+  document.addEventListener("DOMContentLoaded", function() {
+    $('.selectpicker').selectpicker();
+  });
+</script>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Bootstrap-Select JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.14.0-beta3/dist/js/bootstrap-select.min.js"></script>
+>
 <script>
 const qtyModal = document.getElementById('qtyModal');
 qtyModal.addEventListener('show.bs.modal', function (event) {
@@ -282,7 +336,6 @@ document.getElementById('barcodeInput')?.addEventListener('change', function() {
   if (kode !== '') alert('Barcode terdeteksi: ' + kode);
 });
 </script>
-
 <?php include '../includes/footer.php'; ?>
 </body>
 </html>
