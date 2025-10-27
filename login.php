@@ -2,17 +2,74 @@
 session_start();
 include 'config/database.php';
 
-if (isset($_POST['login'])) {
-    $username = $_POST['username'];
-    $password = $_POST['password'];
 
-    // Cek username dan password (sementara hardcode)
-    if ($username == 'admin' && $password == '123') {
-        $_SESSION['username'] = $username;
-        header("Location: index.php");
-        exit;
+if (isset($koneksi) && $koneksi instanceof mysqli) {
+    $db = $koneksi;
+} elseif (isset($conn) && $conn instanceof mysqli) {
+    $db = $conn;
+} elseif (isset($mysqli) && $mysqli instanceof mysqli) {
+    $db = $mysqli;
+} else {
+
+    die('Koneksi database tidak ditemukan. Periksa config/database.php');
+}
+
+$error = '';
+$usernameValue = '';
+
+if (isset($_POST['login'])) {
+
+    $username = trim($_POST['username'] ?? '');
+    $password = $_POST['password'] ?? '';
+    $usernameValue = htmlspecialchars($username, ENT_QUOTES, 'UTF-8');
+
+    if ($username === '' || $password === '') {
+        $error = "Username dan password wajib diisi.";
     } else {
-        $error = "Username atau password salah!";
+
+        $sql = "SELECT id, username, password FROM users WHERE username = ? LIMIT 1";
+        if ($stmt = $db->prepare($sql)) {
+            $stmt->bind_param('s', $username);
+            $stmt->execute();
+            $stmt->store_result();
+
+            if ($stmt->num_rows === 1) {
+                $stmt->bind_result($userId, $dbUsername, $dbPassword);
+                $stmt->fetch();
+
+                $authenticated = false;
+
+ 
+                if (password_verify($password, $dbPassword)) {
+                    $authenticated = true;
+                } else {
+      
+                    if ($password === $dbPassword) {
+                        $authenticated = true;
+                    }
+                }
+
+                if ($authenticated) {
+       
+                    session_regenerate_id(true);
+                    $_SESSION['user_id'] = $userId;
+                    $_SESSION['username'] = $dbUsername;
+
+          
+                    header("Location: /penjualan/");
+                    exit;
+                } else {
+                    $error = "Username atau password salah.";
+                }
+            } else {
+                $error = "Username atau password salah.";
+            }
+
+            $stmt->close();
+        } else {
+        
+            $error = "Terjadi kesalahan pada server. Mohon coba lagi.";
+        }
     }
 }
 ?>
@@ -60,4 +117,5 @@ if (isset($_POST['login'])) {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
 
