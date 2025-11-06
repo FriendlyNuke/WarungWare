@@ -5,21 +5,14 @@
         exit;
     }
     include '../config/database.php';
-
-    // ambil daftar produk
     $produk = mysqli_query($conn, "SELECT * FROM produk WHERE stok > 0");
-
-    // inisialisasi keranjang
     if (!isset($_SESSION['keranjang'])) {
         $_SESSION['keranjang'] = [];
     }
-
-    // tambah ke keranjang (baik dari form list maupun modal gambar)
     if (isset($_POST['tambah'])) {
         $id_produk = $_POST['id_produk'];
         $jumlah = (int) $_POST['jumlah'];
         $data = mysqli_fetch_assoc(mysqli_query($conn, "SELECT * FROM produk WHERE id='$id_produk'"));
-
         if (!$data) {
             $error = "Produk tidak ditemukan.";
         } elseif ($jumlah < 1) {
@@ -39,22 +32,17 @@
             }
         }
     }
-
-    // hapus item dari keranjang
     if (isset($_GET['hapus'])) {
         $hapus_id = $_GET['hapus'];
         unset($_SESSION['keranjang'][$hapus_id]);
         header("Location: transaksi.php");
         exit;
     }
-
-    // simpan transaksi
     if (isset($_POST['simpan'])) {
         if (!empty($_SESSION['keranjang'])) {
             $total = 0;
             mysqli_query($conn, "INSERT INTO penjualan (tanggal, total) VALUES (NOW(), 0)");
             $id_penjualan = mysqli_insert_id($conn);
-
             foreach ($_SESSION['keranjang'] as $id_produk => $jumlah) {
                 $data = mysqli_fetch_assoc(mysqli_query($conn, "SELECT * FROM produk WHERE id='$id_produk'"));
                 $subtotal = $data['harga'] * $jumlah;
@@ -63,10 +51,11 @@
                                     VALUES ('$id_penjualan','$id_produk','$jumlah','$subtotal')");
                 mysqli_query($conn, "UPDATE produk SET stok = stok - $jumlah WHERE id='$id_produk'");
             }
-
             mysqli_query($conn, "UPDATE penjualan SET total = '$total' WHERE id='$id_penjualan'");
             unset($_SESSION['keranjang']);
-            $sukses = "Transaksi berhasil disimpan!";
+            $sukses = "Transaksi berhasil disimpan! <a href='cetak_nota.php?id_penjualan=$id_penjualan' target='_blank'>
+           Cetak Nota?
+          </a> ";
         } else {
             $error = "Keranjang masih kosong!";
         }
@@ -119,22 +108,17 @@ form.card.shadow-sm {
   display: flex;
   align-items: center;
 }
-
 </style>
 </head>
 <body>
-
 <?php include '../includes/header.php'; ?>
-
 <div class="container py-4">
   <h3 class="fw-bold text-success mb-4">Transaksi Penjualan</h3>
-
   <?php if (!empty($sukses)): ?>
     <div class="alert alert-success"><?= $sukses; ?></div>
   <?php elseif (!empty($error)): ?>
     <div class="alert alert-danger"><?= $error; ?></div>
   <?php endif; ?>
-
   <!-- Dropdown Pilihan View -->
   <div class="dropdown mb-3">
     <button class="btn btn-outline-success dropdown-toggle" type="button" id="viewDropdown" data-bs-toggle="dropdown" aria-expanded="false">
@@ -146,7 +130,6 @@ form.card.shadow-sm {
 
     </ul>
   </div>
-
   <!-- VIEW: LIST -->
   <div id="view-list">
   <form method="post" class="card shadow-sm p-4 mb-4">
@@ -157,6 +140,7 @@ form.card.shadow-sm {
         class="selectpicker"
         data-live-search="true"
         data-style="btn-outline-primary"
+        data-width="100%"
         data-container="body"
         title="-- Pilih Produk --"
         required>
@@ -198,9 +182,7 @@ form.card.shadow-sm {
     </div>
   </form>
 </div>
-
   <!-- VIEW: GAMBAR -->
-
   <div id="view-gambar" class="row row-cols-1 row-cols-md-1 row-cols-lg-5 g-1 none ">
     <?php mysqli_data_seek($produk, 0); foreach($produk as $p): ?>
     <div class="col-md-3">
@@ -210,7 +192,7 @@ form.card.shadow-sm {
              onerror="this.src='../assets/img/default.png'; this.removeAttribute('onerror');" 
              class="card-img-top product-img">
         <div class="card-body text-center">
-          <h6><?= htmlspecialchars($p['nama_produk']); ?></h6>
+          <h6 class="text-success fw-semibold"><?= htmlspecialchars($p['nama_produk']); ?></h6>
           <p class="text-success mb-1">Rp <?= number_format($p['harga'],0,',','.'); ?></p>
           <small class="text-muted">Stok: <?= $p['stok']; ?></small><br>
           <button class="btn btn-sm btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#qtyModal" 
@@ -220,9 +202,6 @@ form.card.shadow-sm {
     </div>
     <?php endforeach; ?>
   </div>
-
-
-
   <!-- DAFTAR KERANJANG -->
   <?php if (!empty($_SESSION['keranjang'])): ?>
   <div id="keranjang" class="card shadow-sm mt-5">
@@ -267,9 +246,7 @@ form.card.shadow-sm {
     </div>
   </div>
   <?php endif; ?>
-
 </div>
-
 <!-- MODAL KUANTITAS -->
 <div class="modal fade" id="qtyModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
@@ -297,20 +274,14 @@ form.card.shadow-sm {
     </div>
   </div>
 </div>
-
 <!-- JS -->
  <script>
-  // Inisialisasi plugin Bootstrap-Select setelah halaman dimuat
   document.addEventListener("DOMContentLoaded", function() {
     $('.selectpicker').selectpicker();
-  });
-</script>
+  });</script>
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <!-- Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-  <!-- Bootstrap-Select JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.14.0-beta3/dist/js/bootstrap-select.min.js"></script>
->
 <script>
 const qtyModal = document.getElementById('qtyModal');
 qtyModal.addEventListener('show.bs.modal', function (event) {
@@ -318,19 +289,16 @@ qtyModal.addEventListener('show.bs.modal', function (event) {
   document.getElementById('produkId').value = button.getAttribute('data-id');
   document.getElementById('produkNama').value = button.getAttribute('data-nama');
 });
-
 function setView(view) {
   document.getElementById('view-list').classList.add('d-none');
   document.getElementById('view-gambar').classList.add('d-none');
   document.getElementById('view-' + view).classList.remove('d-none');
   localStorage.setItem('viewMode', view);
 }
-
 document.addEventListener('DOMContentLoaded', () => {
   const lastView = localStorage.getItem('viewMode') || 'list';
   setView(lastView);
 });
-
 document.getElementById('barcodeInput')?.addEventListener('change', function() {
   const kode = this.value.trim();
   if (kode !== '') alert('Barcode terdeteksi: ' + kode);
