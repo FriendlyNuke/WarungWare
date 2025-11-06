@@ -3,13 +3,19 @@
 session_start();
 
 // jika belum login, arahkan ke login.php
-if (!isset($_SESSION['username'])) {
+if (!isset($_SESSION['username'])||(!isset($_SESSION['user_id']))) {
     header("Location: login.php");
     exit;
 }
 
 // koneksi database
 include 'config/database.php';
+$query_stok = mysqli_query($conn, "SELECT nama_produk FROM produk WHERE stok <= 0");
+$produk_habis = [];
+while ($row = mysqli_fetch_assoc($query_stok)) {
+    $produk_habis[] = $row['nama_produk'];
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -40,6 +46,8 @@ include 'config/database.php';
         <li class="nav-item"><a class="nav-link" href="pages/produk.php">Produk</a></li>
         <li class="nav-item"><a class="nav-link" href="pages/transaksi.php">Transaksi</a></li>
         <li class="nav-item"><a class="nav-link" href="pages/laporan.php">Laporan</a></li>
+        <li class="nav-item"><a class="nav-link" href="/penjualan/pages/histori.php">Histori</a></li>
+
         <li class="nav-item"><a href="logout.php" class="btn btn-danger w-100">Logout</a></li>
       </ul>
     </div>
@@ -91,19 +99,42 @@ include 'config/database.php';
       </div>
     </div>
 
-    <!-- LOGOUT -->
-    <div class="col-md-3">
-      <div class="card menu-card">
-        <div class="card-body text-center">
-          <div class="icon bg-danger-subtle text-danger mb-3"><i class="bi bi-box-arrow-right fs-2"></i></div>
-          <h5 class="card-title">Logout</h5>
-          <p class="card-text small text-muted">Keluar dari aplikasi dengan aman.</p>
-          <a href="logout.php" class="btn btn-danger w-100">Logout</a>
-        </div>
-      </div>
+    <!-- HISTORI -->
+<div class="col-md-3">
+  <div class="card menu-card">
+    <div class="card-body text-center">
+      <div class="icon bg-secondary-subtle text-secondary mb-3"><i class="bi bi-clock-history fs-2"></i></div>
+      <h5 class="card-title">Histori</h5>
+      <p class="card-text small text-muted">Lihat histori perubahan pada daftar produk.</p>
+     <a href="pages/histori.php" class="btn btn-secondary w-100 text-white">Lihat Histori</a> 
     </div>
   </div>
 </div>
+
+<!-- Toast Notifikasi -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100">
+  <div id="stokHabisToast" 
+       class="toast align-items-center text-bg-danger border-0 shadow"
+       role="alert" aria-live="assertive" aria-atomic="true"
+       style="cursor: pointer;">  
+    <div class="d-flex">
+      <div class="toast-body">
+        <strong>⚠️ Stok Produk Habis!</strong><br>
+        Beberapa produk kehabisan stok:
+        <ul class="mb-0 small">
+          <?php foreach ($produk_habis as $nama): ?>
+            <li><?= htmlspecialchars($nama); ?></li>
+          <?php endforeach; ?>
+        </ul>
+        <div class="small text-decoration-underline mt-2">Klik untuk kelola produk</div>
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" 
+              data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  </div>
+</div>
+
+
 
 <?php include 'includes/footer.php'; ?>
 
@@ -111,6 +142,32 @@ include 'config/database.php';
 <!-- Bootstrap Icons + Script -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  <?php if (!empty($produk_habis)): ?>
+    const toastEl = document.getElementById('stokHabisToast');
+    const toast = new bootstrap.Toast(toastEl, { delay: 8000 }); // tampil 8 detik
+    toast.show();
+  <?php endif; ?>
+});
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  <?php if (!empty($produk_habis)): ?>
+    const toastEl = document.getElementById('stokHabisToast');
+    const toast = new bootstrap.Toast(toastEl, { delay: 8000 });
+    toast.show();
+
+    // Klik toast untuk redirect
+    toastEl.addEventListener('click', function(e) {
+      // Pastikan bukan tombol close yang diklik
+      if (!e.target.classList.contains('btn-close')) {
+        window.location.href = 'pages/produk.php';
+      }
+    });
+  <?php endif; ?>
+});
+</script>
 
 </body>
 </html>
