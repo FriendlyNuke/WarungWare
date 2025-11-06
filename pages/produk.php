@@ -16,39 +16,79 @@ $view = $_SESSION['view'] ?? 'grid';
 
 // === TAMBAH PRODUK ===
 if (isset($_POST['tambah'])) {
-    $nama = $_POST['nama'];
-    $harga = $_POST['harga'];
-    $stok = $_POST['stok'];
-    $kategori = $_POST['kategori'];
+    $nama = mysqli_real_escape_string($conn, $_POST['nama']);
+$harga = (int)$_POST['harga'];
+$stok = (int)$_POST['stok'];
+$kategori = mysqli_real_escape_string($conn, $_POST['kategori']);
 
-    $gambar = null;
-    if (isset($_FILES['gambar']) && $_FILES['gambar']['error'] == 0) {
-        $target_dir = "../uploads/";
-        if (!is_dir($target_dir)) mkdir($target_dir, 0777, true);
-        $ext = pathinfo($_FILES['gambar']['name'], PATHINFO_EXTENSION);
-        $filename = time() . '_' . uniqid() . '.' . $ext;
-        move_uploaded_file($_FILES['gambar']['tmp_name'], $target_dir . $filename);
-        $gambar = $filename;
-    }
+$gambar = null;
+if (isset($_FILES['gambar']) && $_FILES['gambar']['error'] == 0) {
+    $target_dir = "../uploads/";
+    if (!is_dir($target_dir)) mkdir($target_dir, 0777, true);
+    $ext = pathinfo($_FILES['gambar']['name'], PATHINFO_EXTENSION);
+    $filename = time() . '_' . uniqid() . '.' . $ext;
+    move_uploaded_file($_FILES['gambar']['tmp_name'], $target_dir . $filename);
+    $gambar = mysqli_real_escape_string($conn, $filename);
+}
 
-    mysqli_query($conn, "INSERT INTO produk (nama_produk, harga, stok, kategori, gambar)
-                         VALUES ('$nama','$harga','$stok','$kategori','$gambar')");
-    header("Location: produk.php");
-    exit;
+// Gunakan NULL jika $gambar kosong
+$gambar_sql = $gambar ? "'$gambar'" : "NULL";
+
+mysqli_query($conn, "INSERT INTO produk (nama_produk, harga, stok, kategori, gambar)
+                     VALUES ('$nama', '$harga', '$stok', '$kategori', $gambar_sql)");
+
+// Dapatkan ID produk baru
+$id_produk = mysqli_insert_id($conn);
+
+// ===== Tambahkan catatan ke histori_edit =====
+$id_user = $_SESSION['user_id'] ?? 0;
+$aksi = mysqli_real_escape_string($conn, 
+    "Menambahkan produk baru: '$nama' (Kategori: $kategori, Harga: Rp$harga, Stok: $stok)"
+);
+mysqli_query($conn, "INSERT INTO histori_edit (id_user, id_produk, aksi)
+                     VALUES ('$id_user', '$id_produk', '$aksi')");
+
+header("Location: produk.php?status=added");
+exit;
+
 }
 
 // === HAPUS PRODUK ===
 if (isset($_GET['hapus'])) {
     $id = $_GET['hapus'];
-    $q = mysqli_query($conn, "SELECT gambar FROM produk WHERE id='$id'");
+
+    // Ambil data produk dulu
+    $q = mysqli_query($conn, "SELECT * FROM produk WHERE id='$id'");
     $data = mysqli_fetch_assoc($q);
-    if ($data['gambar'] && file_exists("../uploads/" . $data['gambar'])) {
-        unlink("../uploads/" . $data['gambar']);
+
+    if ($data) {
+        // Catat histori SEBELUM hapus
+        $id_user = $_SESSION['user_id'] ?? 0;
+        $nama_produk = mysqli_real_escape_string($conn, $data['nama_produk']);
+        $kategori = mysqli_real_escape_string($conn, $data['kategori']);
+        $harga = $data['harga'];
+        $stok = $data['stok'];
+
+        $aksi = "Menghapus produk: '$nama_produk' (Kategori: $kategori, Harga: Rp$harga, Stok: $stok)";
+        $aksi = mysqli_real_escape_string($conn, $aksi);
+
+        mysqli_query($conn, "INSERT INTO histori_edit (id_user, id_produk, aksi) 
+                             VALUES ('$id_user', '$id', '$aksi')");
+
+        // Hapus gambar
+        if ($data['gambar'] && file_exists("../uploads/" . $data['gambar'])) {
+            unlink("../uploads/" . $data['gambar']);
+        }
+
+        // Hapus produk
+        mysqli_query($conn, "DELETE FROM produk WHERE id='$id'");
+
+        header("Location: produk.php?status=deleted");
+        exit;
     }
-    mysqli_query($conn, "DELETE FROM produk WHERE id='$id'");
-    header("Location: produk.php");
-    exit;
 }
+
+
 
 // === EDIT PRODUK ===
 if (isset($_POST['edit'])) {
@@ -61,6 +101,11 @@ if (isset($_POST['edit'])) {
     $gambar_lama = $_POST['gambar_lama'];
     $gambar_baru = $gambar_lama;
 
+    // Ambil data lama dari database
+    $query_lama = mysqli_query($conn, "SELECT * FROM produk WHERE id='$id'");
+    $produk_lama = mysqli_fetch_assoc($query_lama);
+
+    // --- PROSES GAMBAR BARU ---
     if (isset($_FILES['gambar']) && $_FILES['gambar']['error'] == 0) {
         $target_dir = "../uploads/";
         if (!is_dir($target_dir)) mkdir($target_dir, 0777, true);
@@ -69,12 +114,13 @@ if (isset($_POST['edit'])) {
         move_uploaded_file($_FILES['gambar']['tmp_name'], $target_dir . $filename);
         $gambar_baru = $filename;
 
-        // Hapus gambar lama
+        // Hapus gambar lama jika ada
         if ($gambar_lama && file_exists("../uploads/" . $gambar_lama)) {
             unlink("../uploads/" . $gambar_lama);
         }
     }
 
+    // --- UPDATE DATA PRODUK ---
     mysqli_query($conn, "UPDATE produk SET 
         nama_produk='$nama', 
         harga='$harga', 
@@ -82,6 +128,35 @@ if (isset($_POST['edit'])) {
         kategori='$kategori',
         gambar='$gambar_baru'
         WHERE id='$id'");
+
+    // --- CATAT HISTORI PERUBAHAN ---
+    $aksi = [];
+
+    if ($produk_lama['nama_produk'] != $nama) {
+        $aksi[] = "Ubah nama dari '{$produk_lama['nama_produk']}' ke '$nama'";
+    }
+    if ($produk_lama['harga'] != $harga) {
+        $aksi[] = "Ubah harga dari Rp{$produk_lama['harga']} ke Rp{$harga}";
+    }
+    if ($produk_lama['stok'] != $stok) {
+        $aksi[] = "Ubah stok dari {$produk_lama['stok']} ke {$stok}";
+    }
+    if ($produk_lama['kategori'] != $kategori) {
+        $aksi[] = "Ubah kategori dari '{$produk_lama['kategori']}' ke '$kategori'";
+    }
+    if ($produk_lama['gambar'] != $gambar_baru) {
+        $aksi[] = "Ganti gambar produk";
+    }
+
+    if (!empty($aksi)) {
+        $keterangan = implode('. ', $aksi) . '.';
+        $id_user = $_SESSION['user_id'] ?? 0; // pastikan ada session user
+
+        mysqli_query($conn, "INSERT INTO histori_edit (id_user, id_produk, aksi) 
+                             VALUES ('$id_user', '$id', '$keterangan')");
+    }
+
+    // --- REDIRECT SELESAI ---
     header("Location: produk.php");
     exit;
 }
@@ -184,7 +259,7 @@ form.card.shadow-sm {
 
     <?php else: ?>
     <!-- === GRID VIEW === -->
-    <div id="grid"  class="row row-cols-1 row-cols-md-1 row-cols-lg-5 g-1">
+    <div id="grid"  class="row row-cols-1 row-cols-md-1 row-cols-lg-5 g-1 none">
         <?php foreach($produk as $row): ?>
         <div class="col">
             <div class="card product-card">
